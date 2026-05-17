@@ -1,4 +1,4 @@
-# Server Wind
+# ServerWind
 
 
 ## Installation

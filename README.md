@@ -16,7 +16,6 @@ git clone https://github.com/WeiDnite1222/ServerWind.git
 ### Configure virtual environment and install dependencies
 
 ```
-uv venv
 uv python pin 3.12.10
 uv pip install -r requirements.txt
 ```

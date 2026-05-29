@@ -6,7 +6,7 @@ import os
 import discord
 import dotenv
 from discord.ext import commands
-from helper import CloudflareDDNSHelper
+from helper import CloudflareHelper
 
 class DiscordServer(threading.Thread):
     def __init__(self, daemon=False, **kwargs):
@@ -42,13 +42,25 @@ class DiscordServer(threading.Thread):
                 else:
                     await message.channel.send(f'You are in private chat.')
 
+            if message.content.startswith('/help'):
+                msg = "Commands:\n"
+                for command in self.commands:
+                    msg += f'- {command}: {self.commands[command].get('help') if self.commands[command].get('help') else "A command"}\n'
+
+                await message.channel.send(
+                    msg
+                )
+
             for command in self.commands:
                 if message.content.startswith(command):
-                    await self.commands[command](self.client, message)
+                    await self.commands[command].get("func")(self.client, message)
 
-    def handle_command(self, command_prefix):
+    def handle_command(self, command_prefix, help=None):
         def decorator(func):
-            self.commands[command_prefix] = func
+            self.commands[command_prefix] = {
+                "func": func,
+                "help": help
+            }
 
             def inner(*args, **kwargs):
                 return func(*args, **kwargs)
@@ -77,7 +89,7 @@ class App:
         self.logger.addHandler(sh)
 
         self.dc_server = DiscordServer(daemon=True)
-        self.cf_helper = CloudflareDDNSHelper(self.dc_server)
+        self.cf_helper = CloudflareHelper(self.dc_server)
 
     def main(self):
         try:

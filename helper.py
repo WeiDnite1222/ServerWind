@@ -30,11 +30,12 @@ cf_config = {
     "cfSecret": None,
     "allowedBroadcastServer": [
     ],
-    "ddnsBroadcastCode": "code-here"
+    "ddnsBroadcastCode": "code-here",
+    "maintenancePageURL": ""
 }
 
 
-class CloudflareDDNSHelper(Helper):
+class CloudflareHelper(Helper):
     def __init__(self, dc):
         Helper.__init__(self)
         self.dc = dc
@@ -53,10 +54,13 @@ class CloudflareDDNSHelper(Helper):
         self.init = False
         self.ip = None
 
+        # maintenance mode
+        self.is_maintenance = False
+
         self.config = cf_config
         self.allowed_broadcast_channels = {}
 
-        @self.dc.handle_command("/cf:update_ddns")
+        @self.dc.handle_command("/cf:update_ddns", help="Update cloudflare DNS")
         async def renew(client, message):
             guild = getattr(message, "guild", None)
             if guild is None:
@@ -69,7 +73,7 @@ class CloudflareDDNSHelper(Helper):
             else:
                 await message.channel.send(f"Unsupported server: {guild.name}")
 
-        @self.dc.handle_command("/cf:add_channel")
+        @self.dc.handle_command("/cf:add_channel", help="Add channel to the cf operator list")
         async def add_channel(client, message):
             guild = getattr(message, "guild", None)
             if guild is None:
@@ -87,6 +91,30 @@ class CloudflareDDNSHelper(Helper):
                 input_code=raw
             )
             await message.channel.send(result)
+
+        @self.dc.handle_command("/cf:enable-maintenance", help="Enable maintenance mode")
+        async def enable_maintenance(client, message):
+            guild = getattr(message, "guild", None)
+            if guild is None:
+                await message.channel.send("This command can only be used in server channels.")
+                return
+
+            if self.is_allowed_broadcast_server(guild.name):
+                await message.channel.send(f"Updating DDNS...")
+            else:
+                await message.channel.send(f"Unsupported server: {guild.name}")
+
+        @self.dc.handle_command("/cf:status-maintenance", help="Check status of maintenance mode")
+        async def check_maintenance(client, message):
+            guild = getattr(message, "guild", None)
+            if guild is None:
+                await message.channel.send("This command can only be used in server channels.")
+                return
+
+            if self.is_allowed_broadcast_server(guild.name):
+                await message.channel.send("Maintenance mode is on" if self.is_maintenance else "Maintenance mode is off")
+            else:
+                await message.channel.send(f"Unsupported server: {guild.name}")
 
     class DCStream:
         def __init__(self, helper):
@@ -196,10 +224,20 @@ class CloudflareDDNSHelper(Helper):
             self.logger.error("An error occurred while getting DNS records: {}".format(e))
             return
 
+        maintenance_url = self.config.get('maintenancePageURL')
+        start_maintenance = False
+
+        if self.is_maintenance and maintenance_url is not None:
+            self.logger.info("Maintenance mode is on. Redirecting support dns records to maintenance page...")
+            start_maintenance = True
+        elif self.is_maintenance and not maintenance_url:
+            self.logger.warning("Maintenance mode is on but maintenancePageURL is not set yet. Ignoring...")
+
         for item in domains:
             domain = item.get("name", None)
             proxied = item.get("proxied", False)
             domain_type = item.get("type", "A")
+            allow_maintenance = item.get("allowMaintenance", False)
 
             if domain is None:
                 continue
@@ -219,9 +257,9 @@ class CloudflareDDNSHelper(Helper):
                 continue
 
             request_data = {
-                "type": domain_type,
+                "type": domain_type if not start_maintenance or not allow_maintenance else "CNAME",
                 "name": domain,
-                "content": self.ip,
+                "content": self.ip if not start_maintenance or not allow_maintenance else maintenance_url,
                 "ttl": 120,
                 "proxied": proxied
             }

@@ -246,9 +246,12 @@ class CloudflareHelper(Helper):
 
             for record in dns_records:
                 name = record.get("name", None)
-                record_type = record.get("type", None)
+                # record_type = record.get("type", None)
 
-                if name == domain and record_type == domain_type:
+                # if name == domain and record_type == domain_type:
+                #     record_id = record.get("id", None)
+
+                if name == domain:
                     record_id = record.get("id", None)
 
             if record_id is None:

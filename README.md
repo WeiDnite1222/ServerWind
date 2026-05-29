@@ -43,7 +43,8 @@ doUpdate: true # set it to true to enable updater
 domains: [] # subdomains that you want auto-update (Example: { "name": "www.example.com", "proxied": true })
 zone: null # zone of your domain name (such as example.com)
 ddnsBroadcastCode: code-here # IMPORTANT: Replace it that only you know
-maintenancePageURL: "" # Maintenance page url (set it to an existing URL if you would use maintenance mode)
+maintenancePageDNS: "" # Maintenance page DNS name, such as maintenance.example.com
+maintenancePageURL: "" # Deprecated fallback. Use maintenancePageDNS instead.
 ```
 
 For dns item, use this template:
@@ -53,7 +54,7 @@ For dns item, use this template:
   "name": "www.example.com", # DNS name
   "proxied": false, # Enable proxy (Enable this if you want to hide your server's real IP)
   "type": "A", # or "CNAME", "AAA", "TEXT", "MX"
-  "allowMaintenance": true # Redirect to maintenancePage if maintenance mode is enabled.
+  "allowMaintenance": true # Redirect to maintenancePageDNS if maintenance mode is enabled.
 }
 ```
 

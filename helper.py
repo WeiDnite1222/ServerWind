@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import time
+from urllib.parse import urlparse
 import requests
 from utils.yaml import yaml_parser, yaml_writer
 from settings import CONFIG_DIR
@@ -31,6 +32,7 @@ cf_config = {
     "allowedBroadcastServer": [
     ],
     "ddnsBroadcastCode": "code-here",
+    "maintenancePageDNS": "",
     "maintenancePageURL": ""
 }
 
@@ -231,14 +233,14 @@ class CloudflareHelper(Helper):
             self.logger.error("An error occurred while getting DNS records: {}".format(e))
             return
 
-        maintenance_url = self.config.get('maintenancePageURL')
+        maintenance_dns = self.get_maintenance_page_dns()
         start_maintenance = False
 
-        if self.is_maintenance and maintenance_url is not None:
+        if self.is_maintenance and maintenance_dns:
             self.logger.info("Maintenance mode is on. Redirecting support dns records to maintenance page...")
             start_maintenance = True
-        elif self.is_maintenance and not maintenance_url:
-            self.logger.warning("Maintenance mode is on but maintenancePageURL is not set yet. Ignoring...")
+        elif self.is_maintenance:
+            self.logger.warning("Maintenance mode is on but maintenancePageDNS is not set yet. Ignoring...")
 
         for item in domains:
             domain = item.get("name", None)
@@ -269,7 +271,7 @@ class CloudflareHelper(Helper):
             request_data = {
                 "type": domain_type if not start_maintenance or not allow_maintenance else "CNAME",
                 "name": domain,
-                "content": self.ip if not start_maintenance or not allow_maintenance else maintenance_url,
+                "content": self.ip if not start_maintenance or not allow_maintenance else maintenance_dns,
                 "ttl": 120,
                 "proxied": proxied
             }
@@ -292,6 +294,22 @@ class CloudflareHelper(Helper):
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Unable to update dns record for domain name {domain}: {e}")
                 continue
+
+    def get_maintenance_page_dns(self):
+        value = self.config.get("maintenancePageDNS") or self.config.get("maintenancePageURL")
+
+        if value is None:
+            return None
+
+        value = str(value).strip()
+        if value == "":
+            return None
+
+        parsed = urlparse(value)
+        if parsed.hostname:
+            return parsed.hostname
+
+        return value.rstrip("/")
 
     def parse_allowed_broadcast_channels(self):
         raw = self.config.get("allowedBroadcastServer", [])

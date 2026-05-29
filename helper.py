@@ -92,7 +92,7 @@ class CloudflareHelper(Helper):
             )
             await message.channel.send(result)
 
-        @self.dc.handle_command("/cf:enable-maintenance", help="Enable maintenance mode")
+        @self.dc.handle_command("/cf:maintenance", help="Toggle maintenance mode")
         async def enable_maintenance(client, message):
             guild = getattr(message, "guild", None)
             if guild is None:
@@ -100,7 +100,14 @@ class CloudflareHelper(Helper):
                 return
 
             if self.is_allowed_broadcast_server(guild.name):
-                await message.channel.send(f"Updating DDNS...")
+                if not self.is_maintenance:
+                    self.is_maintenance = True
+                    self.update_ddns()
+                    await message.channel.send(f"Maintenance mode is enabled. Updating DDNS...")
+                else:
+                    self.is_maintenance = False
+                    self.update_ddns()
+                    await message.channel.send(f"Maintenance mode is disabled. Updating DDNS...")
             else:
                 await message.channel.send(f"Unsupported server: {guild.name}")
 

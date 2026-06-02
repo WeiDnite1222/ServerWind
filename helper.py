@@ -32,8 +32,7 @@ cf_config = {
     "allowedBroadcastServer": [
     ],
     "ddnsBroadcastCode": "code-here",
-    # "maintenancePageDNS": "",
-    # "maintenancePageURL": ""
+    "refreshDDNSWhenStartup": True,
 }
 
 
@@ -94,37 +93,6 @@ class CloudflareHelper(Helper):
             )
             await message.channel.send(result)
 
-        # @self.dc.handle_command("/cf:maintenance", help="Toggle maintenance mode")
-        # async def enable_maintenance(client, message):
-        #     guild = getattr(message, "guild", None)
-        #     if guild is None:
-        #         await message.channel.send("This command can only be used in server channels.")
-        #         return
-        #
-        #     if self.is_allowed_broadcast_server(guild.name):
-        #         if not self.is_maintenance:
-        #             self.is_maintenance = True
-        #             self.update_ddns()
-        #             await message.channel.send(f"Maintenance mode is enabled. Updating DDNS...")
-        #         else:
-        #             self.is_maintenance = False
-        #             self.update_ddns()
-        #             await message.channel.send(f"Maintenance mode is disabled. Updating DDNS...")
-        #     else:
-        #         await message.channel.send(f"Unsupported server: {guild.name}")
-        #
-        # @self.dc.handle_command("/cf:status-maintenance", help="Check status of maintenance mode")
-        # async def check_maintenance(client, message):
-        #     guild = getattr(message, "guild", None)
-        #     if guild is None:
-        #         await message.channel.send("This command can only be used in server channels.")
-        #         return
-        #
-        #     if self.is_allowed_broadcast_server(guild.name):
-        #         await message.channel.send("Maintenance mode is on" if self.is_maintenance else "Maintenance mode is off")
-        #     else:
-        #         await message.channel.send(f"Unsupported server: {guild.name}")
-
     class DCStream:
         def __init__(self, helper):
             self.helper = helper
@@ -153,6 +121,16 @@ class CloudflareHelper(Helper):
 
     def run(self):
         self.on_startup()
+
+        if self.config.get("refreshDDNSWhenStartup"):
+            self.ip = self.what_is_my_ip()
+
+            if self.ip is None:
+                self.logger.error("Unable to determine IP address. Failed to refresh ddns for startup process.")
+            else:
+                self.logger.info("Refreshing ddns for startup process...")
+                self.update_ddns()
+
         while True:
             result = self.detect_ip_change()
 
@@ -233,20 +211,10 @@ class CloudflareHelper(Helper):
             self.logger.error("An error occurred while getting DNS records: {}".format(e))
             return
 
-        # maintenance_dns = self.get_maintenance_page_dns()
-        # start_maintenance = False
-        #
-        # if self.is_maintenance and maintenance_dns:
-        #     self.logger.info("Maintenance mode is on. Redirecting support dns records to maintenance page...")
-        #     start_maintenance = True
-        # elif self.is_maintenance:
-        #     self.logger.warning("Maintenance mode is on but maintenancePageDNS is not set yet. Ignoring...")
-
         for item in domains:
             domain = item.get("name", None)
             proxied = item.get("proxied", False)
             domain_type = item.get("type", "A")
-            # allow_maintenance = item.get("allowMaintenance", False)
 
             if domain is None:
                 continue
@@ -259,9 +227,6 @@ class CloudflareHelper(Helper):
 
                 if name == domain and record_type == domain_type:
                     record_id = record.get("id", None)
-
-                # if name == domain:
-                #     record_id = record.get("id", None)
 
             if record_id is None:
                 self.logger.warning(
@@ -294,22 +259,6 @@ class CloudflareHelper(Helper):
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"Unable to update dns record for domain name {domain}: {e}")
                 continue
-
-    # def get_maintenance_page_dns(self):
-    #     value = self.config.get("maintenancePageDNS") or self.config.get("maintenancePageURL")
-    #
-    #     if value is None:
-    #         return None
-    #
-    #     value = str(value).strip()
-    #     if value == "":
-    #         return None
-    #
-    #     parsed = urlparse(value)
-    #     if parsed.hostname:
-    #         return parsed.hostname
-    #
-    #     return value.rstrip("/")
 
     def parse_allowed_broadcast_channels(self):
         raw = self.config.get("allowedBroadcastServer", [])

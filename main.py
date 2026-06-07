@@ -92,6 +92,7 @@ class App:
         self.cf_helper = CloudflareHelper(self.dc_server)
 
     def main(self):
+        self.logger.info("WorkDir: {}".format(os.getcwd()))
         try:
             while self.dc_server.is_alive():
                 time.sleep(1)

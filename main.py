@@ -3,6 +3,8 @@ import sys
 import threading
 import time
 import os
+from pathlib import Path
+
 import discord
 import dotenv
 from discord.ext import commands
@@ -130,7 +132,7 @@ class App:
 
 if __name__ == '__main__':
     try:
-        dotenv.load_dotenv()
+        dotenv.load_dotenv(Path.cwd() / ".env")
     except Exception:
         raise Exception('Failed to load .env file. Create it before running.')
 
